@@ -44,7 +44,7 @@ sigs = which(corrs > .5 & corrs != 1,arr.ind = T)
 
 
 ####################### Models ####################################
-# Beau: start a RF preprocesing w/KNN. How to choose value of K?
+# Beau: 
 library(caret)
 library(doMC)
 registerDoMC(cores=20)
@@ -60,11 +60,9 @@ trainX = trainData %>% select(-drug1)
 trainY = trainData$drug1
 
 myControl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)#, verboseIter = T, returnResamp = "all")
-modGLMNET1 <- train(trainX, trainY,method = "glmnet", preProcess=c("knnImpute"), trControl = myControl1) 
+modGLMNET1 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
 save(modGLMNET1, ffile = "modGLMNET1.RData")
 
-#Forest = train(trainXAA_all,trainYAA_all, method = "rf", metric = "Kappa",ntree = 1029, trControl = myControl, importance = T)
+myControl1rf <- trainControl(method = "repeatedcv", number = 10, repeats = 5, verboseIter = T, returnResamp = "all")
+Forest = train(trainXAA_all,trainYAA_all, method = "rf", metric = "Kappa",ntree = 1029, trControl = myControl1rf, importance = T)
 #save(aa_all_Forest, file = "aa_all_Forest.RData") #Acc = .75  Kapp = .50
-
-
-runForest = train(trainXp,trainYp, method = "rf", metric = "Kappa",ntree = 1029, trControl = myControl1, importance = T)
