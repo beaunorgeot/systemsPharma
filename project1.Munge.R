@@ -64,5 +64,5 @@ modGLMNET1 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute
 save(modGLMNET1, ffile = "modGLMNET1.RData")
 
 myControl1rf <- trainControl(method = "repeatedcv", number = 10, repeats = 5, verboseIter = T, returnResamp = "all")
-Forest = train(trainXAA_all,trainYAA_all, method = "rf", metric = "Kappa",ntree = 1029, trControl = myControl1rf, importance = T)
-#save(aa_all_Forest, file = "aa_all_Forest.RData") #Acc = .75  Kapp = .50
+Forest1 = train(trainX,trainY, method = "rf", metric = "RMSE",ntree = 1029, preProcess=c("medianImpute"), trControl = myControl1rf, importance = T)
+
