@@ -46,6 +46,7 @@ sigs = which(corrs > .5 & corrs != 1,arr.ind = T)
 ####################### Models ####################################
 # Beau: 
 library(caret)
+library(dplyr)
 library(doMC)
 registerDoMC(cores=20)
 #running on beefy machine
@@ -59,10 +60,33 @@ testData = inTrain1[-inTraining1,] %>% select(-cLine)
 trainX = trainData %>% select(-drug1)
 trainY = trainData$drug1
 
-myControl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)#, verboseIter = T, returnResamp = "all")
+myControl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
 modGLMNET1 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
-save(modGLMNET1, ffile = "modGLMNET1.RData")
+save(modGLMNET1, file = "modGLMNET1.RData")
 
 myControl1rf <- trainControl(method = "repeatedcv", number = 10, repeats = 5, verboseIter = T, returnResamp = "all")
 Forest1 = train(trainX,trainY, method = "rf", metric = "RMSE",ntree = 1029, preProcess=c("medianImpute"), trControl = myControl1rf, importance = T)
+save(Forest1, file = "Forest1.RData")
+########
+#impute the missing values for the test data
+testData_im = testData %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.)))
+
+
+load("modGLMNET1.RData")
+#predict.glmnet requires that you remove the reponse column from testing data, it fails with 
+#  Error in as.matrix(cbind2(1, newx) %*% nbeta) .... Cholmod error 'X and/or Y have wrong dimensions' at file
+# if the column that you want to predict already has values in it
+testy = testData_im %>% select(-drug1)
+glmnet1_predictions = predict(modGLMNET1,testy)
+test_truth = data.frame(obs = testData_im$drug1, pred = glmnet1_predictions)
+glmnet1_summary = defaultSummary(test_truth) #RMSE = .33, Rsquared = .84
+save(glmnet1_summary, file = "glmnet1_summary.RData")
+
+load("Forest1.RData")
+forest1_predictions = predict(Forest1,testData_im)
+test_truth = data.frame(obs = testData_im$drug1, pred = forest1_predictions)
+forest1_summary = defaultSummary(test_truth)
+save(forest1_summary, file = "forest1_summary.RData") #RMSE = .47, R2 = .74
+
+########### iratinib ######################
 
