@@ -45,10 +45,11 @@ sigs = which(corrs > .5 & corrs != 1,arr.ind = T)
 
 ####################### Models ####################################
 # Beau: 
+library(plyr)
 library(caret)
 library(dplyr)
 library(doMC)
-registerDoMC(cores=20)
+registerDoMC(cores=40)
 #running on beefy machine
 load("allFeatures.RData")
 set.seed(666)
@@ -67,6 +68,26 @@ save(modGLMNET1, file = "modGLMNET1.RData")
 myControl1rf <- trainControl(method = "repeatedcv", number = 10, repeats = 5, verboseIter = T, returnResamp = "all")
 Forest1 = train(trainX,trainY, method = "rf", metric = "RMSE",ntree = 1029, preProcess=c("medianImpute"), trControl = myControl1rf, importance = T)
 save(Forest1, file = "Forest1.RData")
+
+#annoylingly, median imputation isn't working for the GBM in preProcessing, doing it manually..
+trainData = trainData %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.)))
+tnGrid = expand.grid(interaction.depth=c(1,2), n.trees=100, shrinkage=c(0.001, 0.01), n.minobsinnode=10)
+gbm1 = train(as.matrix(trainX),trainY, method = "gbm", metric = "RMSE", trControl = myControl1,verbose = F,tuneGrid = tnGrid)
+save(gbm1, file = "gbm1.RData")
+#below works
+gbm1 = train(as.matrix(trainX),trainY, method = "gbm", metric = "RMSE", trControl = myControl1,verbose = F,tuneGrid = jake)
+jake = expand.grid(interaction.depth=c(1,2), n.trees=seq(1,15), shrinkage=c(0.001, 0.01), n.minobsinnode=3)
+
+#########giving up ######### trying a different package
+
+#XGBoost supports only numeric matrix data. Converting all training, testing and outcome data to matrix.
+testData = inTrain1[-inTraining1,] %>% select(-cLine)
+testData = as.matrix(testData)
+trainY = trainData$drug1
+boost = train(as.matrix(trainX),trainY, method = "xgbLinear", metric = "RMSE", trControl = myControl1)
+save(boost, file = "boost.RData")
+
+
 ########
 #impute the missing values for the test data
 testData_im = testData %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.)))
@@ -88,5 +109,56 @@ test_truth = data.frame(obs = testData_im$drug1, pred = forest1_predictions)
 forest1_summary = defaultSummary(test_truth)
 save(forest1_summary, file = "forest1_summary.RData") #RMSE = .47, R2 = .74
 
-########### iratinib ######################
+########### final Models and predictions ######################
+library(plyr)
+library(caret)
+library(dplyr)
+library(doMC)
+registerDoMC(cores=40)
+#running on beefy machine
+load("allFeatures.RData")
+set.seed(666)
+inTrain1 = allFeatures %>% select(-c(cLine,drug2,drug3,drug5)) %>% filter(!is.na(drug1))
+trainX = inTrain1 %>% select(-drug1)
+trainY = inTrain1$drug1
 
+myControl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
+glmnet_drug1 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
+save(glmnet_drug1, file = "glmnet_drug1.RData")
+
+test1 = allFeatures %>% select(-c(cLine,drug2,drug3,drug5)) %>% filter(is.na(drug1)) %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.))) %>% select(-drug1)
+glmnet1_predictions = predict(glmnet_drug1,test1)
+missingDrug1 = allFeatures %>% select(cLine,drug1) %>% filter(is.na(drug1)) %>% select(cLine)
+drug1prediction = cbind(missingDrug1,glmnet1_predictions) %>% arrange(glmnet1_predictions)
+save(drug1prediction, file = "drug1prediction.RData")
+
+#### 2 ####
+inTrain2 = allFeatures %>% select(-c(cLine,drug1,drug3,drug5)) %>% filter(!is.na(drug2))
+trainX = inTrain2 %>% select(-drug2)
+trainY = inTrain2$drug2
+
+glmnet_drug2 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
+save(glmnet_drug2, file = "glmnet_drug2.RData")
+
+test2 = allFeatures %>% select(-c(cLine,drug1,drug3,drug5)) %>% filter(is.na(drug2)) %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.))) %>% select(-drug2)
+glmnet2_predictions = predict(glmnet_drug2,test2)
+missingDrug2 = allFeatures %>% select(cLine,drug2) %>% filter(is.na(drug2)) %>% select(cLine)
+drug2prediction = cbind(missingDrug2,glmnet2_predictions) %>% arrange(glmnet2_predictions)
+save(drug2prediction, file = "drug2prediction.RData")
+#### 5 ####
+inTrain5 = allFeatures %>% select(-c(cLine,drug1,drug2,drug3)) %>% filter(!is.na(drug5))
+trainX = inTrain5 %>% select(-drug5)
+trainY = inTrain5$drug5
+
+glmnet_drug5 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
+save(glmnet_drug5, file = "glmnet_drug5.RData")
+
+test5 = allFeatures %>% select(-c(cLine,drug1,drug2,drug3)) %>% filter(is.na(drug5)) %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.))) %>% select(-drug5)
+glmnet5_predictions = predict(glmnet_drug5,test5)
+missingDrug5 = allFeatures %>% select(cLine,drug5) %>% filter(is.na(drug5)) %>% select(cLine)
+drug5prediction = cbind(missingDrug5,glmnet5_predictions) %>% arrange(glmnet5_predictions)
+save(drug5prediction, file = "drug5prediction.RData")
+
+############ visualizations ###########
+plot(modGLMNET1) # Mixing % vs RMSE
+plot(modGLMNET1$finalModel) #coeffecients
