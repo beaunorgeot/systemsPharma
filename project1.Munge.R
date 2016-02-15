@@ -5,7 +5,7 @@ library(dplyr)
 drugs = cbind(cLine = rownames(drugs), drugs)
 rownames(drugs) = NULL
 #remove drugs we won't touch
-drugs = drugs %>% select(-c(drug4,drug7,drug6))
+drugs = drugs %>% select(-c(drug3,drug4,drug7,drug6))
 
 
 knownDrugs = drugs %>% select(-contains("drug"))
