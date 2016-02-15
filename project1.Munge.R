@@ -13,7 +13,7 @@ ourDrugs = drugs %>% select(drug1,drug2,drug5)
 
 completeDrug1 = drugs %>% filter(!is.na(drug1)) %>% select(-c(drug2,drug5))
 completeDrug2 = drugs %>% filter(!is.na(drug2)) %>% select(-c(drug1,drug5))
-completeDrug5 = drugs %>% filter(!is.na(drug1)) %>% select(-c(drug3,drug1))
+completeDrug5 = drugs %>% filter(!is.na(drug5)) %>% select(-c(drug2,drug1))
 
 cnv = read.table("cnv_data.txt", sep="\t",header = T)
 cnv = cbind(cLine = rownames(cnv), cnv)
@@ -162,3 +162,48 @@ save(drug5prediction, file = "drug5prediction.RData")
 ############ visualizations ###########
 plot(modGLMNET1) # Mixing % vs RMSE
 plot(modGLMNET1$finalModel) #coeffecients
+
+
+############# variable selection for Erlotinib #####################
+# There are a couple of ways to go about this
+# 1. use RandomForest, build about 20 different models (each w/a different seed), and use a voting system to select the top
+# vars that show up the most frequently. Could also do this only 3 times to save time, etc
+# 2. Build a few RF's and a few glmnet's (each w/different seeds). Choose vars that only show up as important vars w/both model types, on the logic
+# that anything that is predictive in both an RF and a linear model is super important. This can be a good method to get a small number of vars to 
+# explore for biological understanding, but maybe isn't a great method for doing future predictions
+
+library(plyr)
+library(caret)
+library(dplyr)
+library(doMC)
+registerDoMC(cores=40)
+#running on beefy machine
+load("allFeatures.RData")
+set.seed(111)
+inTrainFS = allFeatures %>% select(-contains("drug")) %>% filter(!is.na(Erlotinib)) %>% select(-cLine)
+
+trainX = inTrainFS %>% select(-Erlotinib)
+trainY = inTrainFS$Erlotinib
+
+myControl1rf <- trainControl(method = "repeatedcv", number = 10, repeats = 5, verboseIter = T, returnResamp = "all")
+Forest_fs = train(trainX,trainY, method = "rf", metric = "RMSE",ntree = 1029, preProcess=c("medianImpute"), trControl = myControl1rf, importance = T)
+save(Forest_fs, file = "Forest_fs.RData")
+# extract a list of the vars by importance
+ImpMeasure<-data.frame(varImp(Forest_fs)$importance)
+ImpMeasure$Vars<-row.names(ImpMeasure)
+#take the top n-variables
+n = 20
+forest_vars = ImpMeasure[order(ImpMeasure$Overall,decreasing = T),][1:n,]
+
+# now train a glmnet on erot
+glmnet_fs <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1)
+save(glmnet_fs, file = "glmnet_fs.RData")
+# extract a list of the vars by importance
+ImpMeasure<-data.frame(varImp(glmnet_fs)$importance)
+ImpMeasure$Vars<-row.names(ImpMeasure)
+#take the top n-variables
+n = 20
+glmnet_vars = ImpMeasure[order(ImpMeasure$Overall,decreasing = T),][1:n,]
+
+#which vars appear in the top 20 for glmnet and forest?
+super_vars = intersect(forest_vars,glmnet_vars) #there's no overlap :()
