@@ -137,8 +137,12 @@ inTrain2 = allFeatures %>% select(-c(cLine,drug1,drug3,drug5)) %>% filter(!is.na
 trainX = inTrain2 %>% select(-drug2)
 trainY = inTrain2$drug2
 
-glmnet_drug2 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
+glmnet_drug2 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) # RMSE 0.6836211  R2: 0.3924393
 save(glmnet_drug2, file = "glmnet_drug2.RData")
+## glmnet didn't do nearly as well on drug 2, how does an rf do in sample? ## about the same
+rf_drug2 <- train(trainX, trainY,method = "rf", preProcess=c("medianImpute"), trControl = myControl1rf) # RMSE:6952442   R2:0.40
+save(rf_drug2, file = "rf_drug2.RData")
+###
 
 test2 = allFeatures %>% select(-c(cLine,drug1,drug3,drug5)) %>% filter(is.na(drug2)) %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.))) %>% select(-drug2)
 glmnet2_predictions = predict(glmnet_drug2,test2)
@@ -150,7 +154,7 @@ inTrain5 = allFeatures %>% select(-c(cLine,drug1,drug2,drug3)) %>% filter(!is.na
 trainX = inTrain5 %>% select(-drug5)
 trainY = inTrain5$drug5
 
-glmnet_drug5 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
+glmnet_drug5 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) # RMSE:0.8136636  R2:0.4132502
 save(glmnet_drug5, file = "glmnet_drug5.RData")
 
 test5 = allFeatures %>% select(-c(cLine,drug1,drug2,drug3)) %>% filter(is.na(drug5)) %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.))) %>% select(-drug5)
