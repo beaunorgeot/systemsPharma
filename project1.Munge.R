@@ -124,7 +124,7 @@ trainY = inTrain1$drug1
 
 myControl1 <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
 glmnet_drug1 <- train(trainX, trainY,method = "glmnet", preProcess=c("medianImpute"), trControl = myControl1) 
-save(glmnet_drug1, file = "glmnet_drug1.RData")
+save(glmnet_drug1, file = "glmnet_drug1.RData") #R2: .72
 
 test1 = allFeatures %>% select(-c(cLine,drug2,drug3,drug5)) %>% filter(is.na(drug1)) %>% mutate_each(funs(ifelse(is.na(.),median(.,na.rm = TRUE),.))) %>% select(-drug1)
 glmnet1_predictions = predict(glmnet_drug1,test1)
