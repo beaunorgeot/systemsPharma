@@ -29,15 +29,15 @@ impVar_bob_3$Vars_bob<-row.names(impVar_bob_3)
 colnames(impVar_bob_3) = paste(colnames(impVar_bob_3),"3", sep = "_")
 #join and average the results
 bobs_impVar = cbind(impVar_bob_1,impVar_bob_2,impVar_bob_3)
-bobs_impVar = bobs_impVar %>% mutate(avg_imp = (auto_1 + auto_2 + auto_3)/3)
+n = 5
+bobs_avgTop_vars = bobs_impVar %>% mutate(Vars = Vars_bob_1,avg_imp = (auto_1 + auto_2 + auto_3)/3) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
 
-#take the top n-variables from a single run ################
-jo = train(am ~.,data = mtcars,method = "rf", metric = "Kappa",tuneLength =5,ntree = 50, proximity = T, importance = T, type = 1)
-imp <- varImp(sample_tree)
-rownames(imp)[order(imp$Overall, decreasing=TRUE)]
+
+########################### #take the top n-variables from a single run ################
+ImpMeasure<-data.frame(varImp(yourModel)$importance)
+ImpMeasure$Vars<-row.names(ImpMeasure)
 n = 20
-jo_avgTop_vars = impVar_jo[order(impVar_jo$Overall,decreasing = T),][1:n,]
-###########################
+Top_vars = ImpMeasure[order(ImpMeasure$Overall, decreasing = T),][1:n,]
 
 #which vars appear in the top 20 for glmnet and forest?
 super_vars = intersect(forest_vars,glmnet_vars)
