@@ -15,6 +15,14 @@ varImp(bob2)
 set.seed(3)
 bob_3 = train(am ~.,data = mtcars,method = "rf", metric = "Kappa",tuneLength =5,ntree = 50, proximity = T, importance = T, type = 1)
 
+#### train up a bunch of models with a different random seed ##########
+for (i in 1:3){
+  set.seed(i)
+  nam = paste('cars_rf',i,sep="_")
+  assign(nam,train(am ~. , data = mtcars, method = "rf", metric = "Kappa",
+                   tuneLength = 5, ntree = 5, proximity = T, importance = T))
+}
+
 # extract a list of the vars by importance
 impVar_bob_1<-data.frame(varImp(bob_1)$importance)
 impVar_bob_1$Vars_bob<-row.names(impVar_bob_1)
