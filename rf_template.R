@@ -16,14 +16,22 @@ set.seed(3)
 bob_3 = train(am ~.,data = mtcars,method = "rf", metric = "Kappa",tuneLength =5,ntree = 50, proximity = T, importance = T, type = 1)
 
 #### train up a bunch of models with a different random seed ##########
+model_list = list()
 for (i in 1:3){
   set.seed(i)
-  nam = paste('cars_rf',i,sep="_")
+  nam = paste('myCars_rf',i,sep="_")
   assign(nam,train(am ~. , data = mtcars, method = "rf", metric = "Kappa",
                    tuneLength = 5, ntree = 5, proximity = T, importance = T))
+  model_list[i] = nam
 }
 
 # extract a list of the vars by importance
+for (i in 1:length(model_list)){
+  vars = paste('myCars_rf_vars',i,sep="_")
+  assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
+}
+
+##########
 impVar_bob_1<-data.frame(varImp(bob_1)$importance)
 impVar_bob_1$Vars_bob<-row.names(impVar_bob_1)
 colnames(impVar_bob_1) = paste(colnames(impVar_bob_1),"1", sep = "_")
@@ -35,6 +43,7 @@ colnames(impVar_bob_2) = paste(colnames(impVar_bob_2),"2", sep = "_")
 impVar_bob_3<-data.frame(varImp(bob_3)$importance)
 impVar_bob_3$Vars_bob<-row.names(impVar_bob_3)
 colnames(impVar_bob_3) = paste(colnames(impVar_bob_3),"3", sep = "_")
+##################
 #join and average the results
 bobs_impVar = cbind(impVar_bob_1,impVar_bob_2,impVar_bob_3)
 n = 5
