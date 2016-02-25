@@ -29,7 +29,21 @@ for (i in 1:3){
 for (i in 1:length(model_list)){
   vars = paste('myCars_rf_vars',i,sep="_")
   assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
+  print(class(get(vars)))
+  tempTab = get(vars)
+  tempTab[paste("myVars", i, sep="")] <- row.names(tempTab)
+  colnames(vars) = paste(colnames(vars),i,sep = "_")
+  assign(vars,tempTab)
 }
+
+all_vars = myCars_rf_vars_1
+for (i in 2:3){
+  vars = paste('myCars_rf_vars',i,sep="_")
+  alls_vars = cbind(all_vars, get(vars))
+}
+
+n = 5
+my_avgTop_vars = all_vars %>% mutate(Vars = myVars_1,avg_imp = (auto_1 + auto_2 + auto_3)/3) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
 
 ##########
 impVar_bob_1<-data.frame(varImp(bob_1)$importance)
@@ -44,6 +58,7 @@ impVar_bob_3<-data.frame(varImp(bob_3)$importance)
 impVar_bob_3$Vars_bob<-row.names(impVar_bob_3)
 colnames(impVar_bob_3) = paste(colnames(impVar_bob_3),"3", sep = "_")
 ##################
+cars_vars = cbind(myCars_rf_vars_1,myCars_rf_vars_2,myCars_rf_vars_3)
 #join and average the results
 bobs_impVar = cbind(impVar_bob_1,impVar_bob_2,impVar_bob_3)
 n = 5
