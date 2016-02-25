@@ -31,21 +31,20 @@ for (i in 1:length(model_list)){
   assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
   print(class(get(vars)))
   tempTab = get(vars)
-  tempTab[paste("myVars", i, sep="")] <- row.names(tempTab)
-  colnames(vars) = paste(colnames(vars),i,sep = "_")
+  tempTab[paste("myVars", i, sep="_")] <- row.names(tempTab)
+  colnames(tempTab) = paste(colnames(tempTab),i,sep = "_")
   assign(vars,tempTab)
 }
 
 all_vars = myCars_rf_vars_1
-for (i in 2:3){
+for (i in 2:length(model_list)){
   vars = paste('myCars_rf_vars',i,sep="_")
-  alls_vars = cbind(all_vars, get(vars))
+  all_vars = cbind(all_vars, get(vars))
 }
 
 n = 5
-my_avgTop_vars = all_vars %>% mutate(Vars = myVars_1,avg_imp = (auto_1 + auto_2 + auto_3)/3) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
-
-##########
+my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
+########## below is the line by line that I used to build the programmatic approach above ###############
 impVar_bob_1<-data.frame(varImp(bob_1)$importance)
 impVar_bob_1$Vars_bob<-row.names(impVar_bob_1)
 colnames(impVar_bob_1) = paste(colnames(impVar_bob_1),"1", sep = "_")
@@ -77,7 +76,8 @@ super_vars = intersect(forest_vars,glmnet_vars)
 #set 20 different random seeds, use voting to select the top N features. Use only those features in the final model. 
 # less features, less overfitting. 
 
-##randoms ##
+################################################
+##plotting ##
 featurePlot(train, outcome.org, "strip")
 # correlation plot: pretty cool, see https://rpubs.com/flyingdisc/practical-machine-learning-xgboost
 corrplot.mixed(cor(train), lower="circle", upper="color", 
