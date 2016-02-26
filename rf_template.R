@@ -25,9 +25,8 @@ for (i in 1:3){
   model_list[i] = nam
 }
 
-# extract a list of the vars by importance as a seperate df for each model
 for (i in 1:length(model_list)){
-  vars = paste('myCars_rf_vars',i,sep="_")
+  vars = paste('important_rf_vars',i,sep="_")
   assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
   print(class(get(vars)))
   tempTab = get(vars)
@@ -35,15 +34,17 @@ for (i in 1:length(model_list)){
   colnames(tempTab) = paste(colnames(tempTab),i,sep = "_")
   assign(vars,tempTab)
 }
+
 #bind the important vars into 1 df
-all_vars = myCars_rf_vars_1
+all_vars = meta_clinical_local_500_rf_seed_1
 for (i in 2:length(model_list)){
-  vars = paste('myCars_rf_vars',i,sep="_")
+  vars = paste('final_rf_vars',i,sep="_")
   all_vars = cbind(all_vars, get(vars))
 }
 
-n = 5
+# either extract the top n important vars, or remove the top_n() step to simply return a sorted list of vars with their relative importance
 #you will still need to change the response, in the first select from "auto" to whatever you want
+n = 10
 my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
 
 
