@@ -25,7 +25,7 @@ for (i in 1:3){
   model_list[i] = nam
 }
 
-# extract a list of the vars by importance
+# extract a list of the vars by importance as a seperate df for each model
 for (i in 1:length(model_list)){
   vars = paste('myCars_rf_vars',i,sep="_")
   assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
@@ -35,7 +35,7 @@ for (i in 1:length(model_list)){
   colnames(tempTab) = paste(colnames(tempTab),i,sep = "_")
   assign(vars,tempTab)
 }
-
+#bind the important vars into 1 df
 all_vars = myCars_rf_vars_1
 for (i in 2:length(model_list)){
   vars = paste('myCars_rf_vars',i,sep="_")
@@ -43,7 +43,10 @@ for (i in 2:length(model_list)){
 }
 
 n = 5
+#you will still need to change the response, in the first select from "auto" to whatever you want
 my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
+
+
 ########## below is the line by line that I used to build the programmatic approach above ###############
 impVar_bob_1<-data.frame(varImp(bob_1)$importance)
 impVar_bob_1$Vars_bob<-row.names(impVar_bob_1)
