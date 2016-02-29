@@ -17,14 +17,14 @@ bob_3 = train(am ~.,data = mtcars,method = "rf", metric = "Kappa",tuneLength =5,
 
 #### train up a bunch of models with a different random seed ##########
 model_list = list()
-for (i in 1:3){
+for (i in 1:4){
   set.seed(i)
   nam = paste('myCars_rf',i,sep="_")
   assign(nam,train(am ~. , data = mtcars, method = "rf", metric = "Kappa",
                    tuneLength = 5, ntree = 5, proximity = T, importance = T))
   model_list[i] = nam
 }
-
+# extract a list of the vars by importance as a seperate df for each model
 for (i in 1:length(model_list)){
   vars = paste('important_rf_vars',i,sep="_")
   assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
@@ -36,16 +36,17 @@ for (i in 1:length(model_list)){
 }
 
 #bind the important vars into 1 df
-all_vars = meta_clinical_local_500_rf_seed_1
+all_vars = important_rf_vars_1
 for (i in 2:length(model_list)){
-  vars = paste('final_rf_vars',i,sep="_")
+  vars = paste('important_rf_vars',i,sep="_")
   all_vars = cbind(all_vars, get(vars))
 }
 
 # either extract the top n important vars, or remove the top_n() step to simply return a sorted list of vars with their relative importance
-#you will still need to change the response, in the first select from "auto" to whatever you want
+# YOU NEED TO CHANGE THE RESPONSE select(contain("your actual variable")),, in the first select from "auto" to whatever you want
+# look at all_vars to choose a name
 n = 10
-my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% top_n(n = n,wt=avg_imp) %>% select(Vars,avg_imp)
+my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% select(Vars,avg_imp) %>% top_n(n = n,wt=avg_imp)
 
 
 ########## below is the line by line that I used to build the programmatic approach above ###############
