@@ -72,16 +72,22 @@ library(caret)
 set.seed(42)
 #split the training set into a train/test set (which I'm calling validate), so that testSet is a true hold out set
 inTrain <- createDataPartition(stud_adjust_clean$CAT_response, p = 0.8, list = F)
-train_set <- stud_adjust_clean[inTrain,]
+# weight_ipt, and weight_pwk have lots of NAs, removing them for the moment, we could impute later
+train_set <- stud_adjust_clean[inTrain,] %>% select(-c(weight_pwk,weight_ipt))
 training = train_set %>% select(-c(good_id,CAT_response))
-test_set <- stud_adjust_clean[-inTrain,]
+test_set <- stud_adjust_clean[-inTrain,] %>% select(-c(weight_pwk,weight_ipt))
 train_response = train_set$CAT_response
 
 myControl <- trainControl(method = "repeatedcv", number = 10, repeats = 5 )
 binary_rf_1 = train(training,train_response,method = "rf", metric = "Kappa",tuneLength =5,ntree = 500, 
                     proximity = T, importance = T, type = 1, trControl = myControl)
+# in sample performance sucks: Kappa ~= 0.0
 
+#no need to test out of sample yet
 testy = test_set %>% select(-c(good_id,CAT_response))
+which(is.na(testy),arr.ind = T)
+#row col
+#441  91  15
 #make predictions
 binary_rf_1_predictions = predict(binary_rf_1,testy)
 binary_rf_1_confus = confusionMatrix(binary_rf_1_predictions,test_set$CAT_response) 
