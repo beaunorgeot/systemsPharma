@@ -52,42 +52,79 @@ stud_adjust_responders %>% filter(weight_ipt == ".") %>% summarise(n = n()) #81 
 stud_adjust_responders %>% filter(weight_pwk == ".") %>% summarise(n = n()) #81 people
 
 colnames(stud_adjust_responders)[grep("mtb_",colnames(stud_adjust_responders))] 
-stud_adjust_responders_filtered = stud_adjust_responders %>% select(-c(Obs,age,id,birthregion, cxr_bilat, cd4cells, cd4cells_,
+pk_and_study_join_filtered = pk_and_study_join %>% select(-c(Obs,age,id,ID,OID,birthregion, cxr_bilat, cd4cells, cd4cells_,
                                                                        mtb_s_on_days_te,mtb_s_all_days_te,mtb_s_on_days_sc,
-                                                                       mtb_l_on_days_sc,rptdose,karnofsky, platelet_))
+                                                                       mtb_l_on_days_sc,rptdose,karnofsky, platelet_,weight_ipt,weight_pwk,
+                                                             Gene1,Gene2,Gene3,Biolmarker.1,Biomarker2,Biomarker3))
 
-cont = stud_adjust_responders_filtered %>% select(age_,ast,ast_uln,hgb,platelet,wbc,height,weight_enroll,weight_ipt,weight_pwk,
-                                                  Biolmarker.1,Biomarker2,Biomarker3)
+cont = pk_and_study_join_filtered %>% select(age_,ast,ast_uln,hgb,platelet,wbc,height,weight_enroll,AUC, CMAX)
 
-cont$weight_ipt = as.numeric(as.character(cont$weight_ipt))
-cont$weight_pwk = as.numeric(as.character(cont$weight_pwk))
 
-quals = stud_adjust_responders_filtered %>% select(-c(age_,ast,ast_uln,hgb,platelet,wbc,height,weight_enroll,weight_ipt,weight_pwk,
-                                                     Biolmarker.1,Biomarker2,Biomarker3,good_id))
+quals = pk_and_study_join_filtered %>% select(-c(age_,ast,ast_uln,hgb,platelet,wbc,height,weight_enroll,good_id,AUC, CMAX))
 quals <- as.data.frame(sapply(quals, as.factor))
 stud_adjust_clean = cbind(quals,cont)
-stud_adjust_clean$good_id = stud_adjust_responders_filtered$good_id
-stud_adjust_clean$CAT_response = stud_adjust_responders_filtered$CAT_response
+stud_adjust_clean$good_id = pk_and_study_join_filtered$good_id
+stud_adjust_clean$CAT_response = pk_and_study_join_filtered$CAT_response
+# there are some weird missing values in the first row
+stud_adjust_clean$homeless[1] = 0 # table(stud_adjust_clean$homeless); way more 0's
+stud_adjust_clean$unemployed[1] = 0# table(stud_adjust_clean$unemployed)
+stud_adjust_clean$drug_inj[1] = 0
+stud_adjust_clean$drug_noninj[1] = 0
+stud_adjust_clean$drug_use[1] = 0
+stud_adjust_clean$alcohol_use[1] = 0
+########### enter traain#########
 library(caret)
 set.seed(42)
 #split the training set into a train/test set (which I'm calling validate), so that testSet is a true hold out set
 inTrain <- createDataPartition(stud_adjust_clean$CAT_response, p = 0.8, list = F)
 # weight_ipt, and weight_pwk have lots of NAs, removing them for the moment, we could impute later
-train_set <- stud_adjust_clean[inTrain,] %>% select(-c(weight_pwk,weight_ipt))
+train_set <- stud_adjust_clean[inTrain,]  
 training = train_set %>% select(-c(good_id,CAT_response))
-test_set <- stud_adjust_clean[-inTrain,] %>% select(-c(weight_pwk,weight_ipt))
-train_response = train_set$CAT_response
+test_set <- stud_adjust_clean[-inTrain,]; prop.table(table(test_set$CAT_response)) # fast = .75% of samples
+rownames(test_set) = NULL
+train_response = train_set$CAT_response; prop.table(table(train_set$CAT_response)) # fast = .75% of samples
 
 myControl <- trainControl(method = "repeatedcv", number = 10, repeats = 5 )
 binary_rf_1 = train(training,train_response,method = "rf", metric = "Kappa",tuneLength =5,ntree = 500, 
                     proximity = T, importance = T, type = 1, trControl = myControl)
-# in sample performance sucks: Kappa ~= 0.0
+# in sample performance sucks: Kappa = 0.08
+save(binary_rf_1, file = "binary_rf_1.RData")
 
-#no need to test out of sample yet
-testy = test_set %>% select(-c(good_id,CAT_response))
-which(is.na(testy),arr.ind = T)
+########### do some rfe ##############
+predictors_df <- training # Make sure you're only doing this on your training data!!!!
+labels <- train_response
+rfe(
+  predictors_df[complete.cases(predictors_df),],
+  labels[complete.cases(predictors_df)],
+  sizes = seq(2, 10, by = 2),
+  rfeControl = rfeControl(functions = rfFuncs, method = 'cv', number = 5) #rfFuncs means use a randomForest
+)
+
+#The top 5 variables (out of 53): site, CMAX, cxrclass, AUC, smear_who
+#############
+rfe_train_vars = training %>% select(c(site, CMAX, cxrclass, AUC, smear_who))
+rfe_test = test_set %>% select(c(site, CMAX, cxrclass, AUC, smear_who,CAT_response))
+rfe_rf_5vars = train(rfe_train_vars,train_response,method = "rf", metric = "Kappa",tuneLength =4,ntree = 500, 
+                    proximity = T, importance = T, type = 1, trControl = myControl)
+#This is marginally better than all vars:
+#mtry 5     Acc: 0.7125123  Kapp: 0.1735163  
+
+# does maximizing ROC help?
+myControl_roc <- trainControl(method = "repeatedcv", number = 10, repeats = 5,summaryFunction = twoClassSummary,classProbs = TRUE)
+rfe_rf_5vars_roc = train(rfe_train_vars,train_response,method = "rf", metric = "ROC",tuneLength =4,ntree = 500, 
+                     proximity = T, importance = T, type = 1, trControl = myControl_roc)
+###############
+#test out of sample yet
+testy = rfe_test %>% select(-c(CAT_response))
+any(is.na(testy),arr.ind = T); sum(is.na(testy),arr.ind = T); which(is.na(testy),arr.ind = T);
 #row col
 #441  91  15
 #make predictions
-binary_rf_1_predictions = predict(binary_rf_1,testy)
-binary_rf_1_confus = confusionMatrix(binary_rf_1_predictions,test_set$CAT_response) 
+rfe_rf_5vars_predictions = predict(rfe_rf_5vars,testy)
+rfe_rf_5vars_confus = confusionMatrix(rfe_rf_5vars_predictions,test_set$CAT_response) 
+#Acc = .68, Kapp = .07 # Got most fast people correct, got most slow people wrong
+
+########## feature selection / Next steps ################
+# 1. check correlation between vars and response
+# 2. see an ifiML simple ideas
+# 3. rfe
