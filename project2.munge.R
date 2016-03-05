@@ -169,4 +169,16 @@ for (i in 2:length(model_list)){
 # YOU NEED TO CHANGE THE RESPONSE select(contain("your actual variable")),, in the first select from "auto" to whatever you want
 # look at all_vars to choose a name
 n = 5
-my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% select(Vars,avg_imp) %>% top_n(n = n,wt=avg_imp)
+my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("fast")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% select(Vars,avg_imp) %>% top_n(n = n,wt=avg_imp)
+# "site"         "cxrclass"     "CMAX"         "AUC"          "birth_region"
+
+top_5 = train_set %>% select(c(site,cxrclass,CMAX,AUC,birth_region))
+myControl_roc <- trainControl(method = "repeatedcv", number = 10, repeats = 5,summaryFunction = twoClassSummary,classProbs = TRUE)
+top_5_rf = train(top_5,train_response,method = "rf", metric = "ROC",tuneLength =4,ntree = 1500, 
+                         proximity = T, importance = T, type = 1, trControl = myControl_roc)
+
+auc_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = AUC, colour = CAT_response))
+cmax_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = CMAX, colour = CAT_response))
+site_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = site, colour = CAT_response))
+cxrclass_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = cxrclass, colour = CAT_response))
+birth_region_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = birth_region, colour = CAT_response))
