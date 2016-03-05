@@ -55,7 +55,7 @@ colnames(stud_adjust_responders)[grep("mtb_",colnames(stud_adjust_responders))]
 pk_and_study_join_filtered = pk_and_study_join %>% select(-c(Obs,age,id,ID,OID,birthregion, cxr_bilat, cd4cells, cd4cells_,
                                                                        mtb_s_on_days_te,mtb_s_all_days_te,mtb_s_on_days_sc,
                                                                        mtb_l_on_days_sc,rptdose,karnofsky, platelet_,weight_ipt,weight_pwk,
-                                                             Gene1,Gene2,Gene3,Biolmarker.1,Biomarker2,Biomarker3))
+                                                             Gene1,Gene2,Gene3,Biolmarker.1,Biomarker2,Biomarker3,cav_enroll,cav_bi))#
 
 cont = pk_and_study_join_filtered %>% select(age_,ast,ast_uln,hgb,platelet,wbc,height,weight_enroll,AUC, CMAX)
 
@@ -79,10 +79,10 @@ set.seed(42)
 inTrain <- createDataPartition(stud_adjust_clean$CAT_response, p = 0.8, list = F)
 # weight_ipt, and weight_pwk have lots of NAs, removing them for the moment, we could impute later
 train_set <- stud_adjust_clean[inTrain,]  
-training = train_set %>% select(-c(good_id,CAT_response))
+training = train_set %>% select(-c(good_id,CAT_response)); prop.table(table(train_set$CAT_response)) # fast = .75% of samples
 test_set <- stud_adjust_clean[-inTrain,]; prop.table(table(test_set$CAT_response)) # fast = .75% of samples
 rownames(test_set) = NULL
-train_response = train_set$CAT_response; prop.table(table(train_set$CAT_response)) # fast = .75% of samples
+train_response = train_set$CAT_response 
 
 myControl <- trainControl(method = "repeatedcv", number = 10, repeats = 5 )
 binary_rf_1 = train(training,train_response,method = "rf", metric = "Kappa",tuneLength =5,ntree = 500, 
@@ -93,6 +93,7 @@ save(binary_rf_1, file = "binary_rf_1.RData")
 ########### do some rfe ##############
 predictors_df <- training # Make sure you're only doing this on your training data!!!!
 labels <- train_response
+set.seed(1)
 rfe(
   predictors_df[complete.cases(predictors_df),],
   labels[complete.cases(predictors_df)],
@@ -124,7 +125,48 @@ rfe_rf_5vars_predictions = predict(rfe_rf_5vars,testy)
 rfe_rf_5vars_confus = confusionMatrix(rfe_rf_5vars_predictions,test_set$CAT_response) 
 #Acc = .68, Kapp = .07 # Got most fast people correct, got most slow people wrong
 
+#try again this time with lots of variables, and removeing cav_enroll,cav_bi from the first join
+set.seed(66)
+rfe_2 = rfe(
+  predictors_df[complete.cases(predictors_df),],
+  labels[complete.cases(predictors_df)],
+  sizes = seq(2, length(names(training)), by = 4),
+  rfeControl = rfeControl(functions = rfFuncs, method = 'cv', number = 5) #rfFuncs means use a randomForest
+)
+#The top 5 variables (out of 40): site, AUC
+
 ########## feature selection / Next steps ################
-# 1. check correlation between vars and response
-# 2. see an ifiML simple ideas
-# 3. rfe
+# permute random seeds and take the top5 vars to see if that changes anything
+library(doMC)
+registerDoMC(cores=3)
+
+model_list = list()
+for (i in 1:5){
+  set.seed(i)
+  nam = paste('rf',i,sep="_")
+  assign(nam,train(training,train_response, method = "rf", metric = "Kappa", tuneLength = 3, ntree = 1500, importance = T))
+  model_list[i] = nam
+}
+# extract a list of the vars by importance as a seperate df for each model
+for (i in 1:length(model_list)){
+  vars = paste('important_rf_vars',i,sep="_")
+  assign(vars,data.frame(varImp(get(model_list[[i]]))$importance))
+  print(class(get(vars)))
+  tempTab = get(vars)
+  tempTab[paste("myVars", i, sep="_")] <- row.names(tempTab)
+  colnames(tempTab) = paste(colnames(tempTab),i,sep = "_")
+  assign(vars,tempTab)
+}
+
+#bind the important vars into 1 df
+all_vars = important_rf_vars_1
+for (i in 2:length(model_list)){
+  vars = paste('important_rf_vars',i,sep="_")
+  all_vars = cbind(all_vars, get(vars))
+}
+
+# either extract the top n important vars, or remove the top_n() step to simply return a sorted list of vars with their relative importance
+# YOU NEED TO CHANGE THE RESPONSE select(contain("your actual variable")),, in the first select from "auto" to whatever you want
+# look at all_vars to choose a name
+n = 5
+my_avgTop_vars = all_vars %>% select(Vars = myVars_1_1,contains("auto")) %>% mutate(avg_imp = rowSums(.[, -1])/length(model_list)) %>% arrange(desc(avg_imp)) %>% select(Vars,avg_imp) %>% top_n(n = n,wt=avg_imp)
