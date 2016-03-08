@@ -115,7 +115,7 @@ myControl_roc <- trainControl(method = "repeatedcv", number = 10, repeats = 5,su
 rfe_rf_5vars_roc = train(rfe_train_vars,train_response,method = "rf", metric = "ROC",tuneLength =4,ntree = 500, 
                      proximity = T, importance = T, type = 1, trControl = myControl_roc)
 ###############
-#test out of sample yet
+#test out of sample
 testy = rfe_test %>% select(-c(CAT_response))
 any(is.na(testy),arr.ind = T); sum(is.na(testy),arr.ind = T); which(is.na(testy),arr.ind = T);
 #row col
@@ -176,9 +176,17 @@ top_5 = train_set %>% select(c(site,cxrclass,CMAX,AUC,birth_region))
 myControl_roc <- trainControl(method = "repeatedcv", number = 10, repeats = 5,summaryFunction = twoClassSummary,classProbs = TRUE)
 top_5_rf = train(top_5,train_response,method = "rf", metric = "ROC",tuneLength =4,ntree = 1500, 
                          proximity = T, importance = T, type = 1, trControl = myControl_roc)
+#mtry 5     ROC: 0.6231633  Sens: 0.8466667  Spec: 0.2514286
 
-auc_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = AUC, colour = CAT_response))
-cmax_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = CMAX, colour = CAT_response))
-site_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = site, colour = CAT_response))
-cxrclass_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = cxrclass, colour = CAT_response))
-birth_region_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = birth_region, colour = CAT_response))
+png("imp_vars_plot.png")
+plot(varImp(top_5_rf)); ggsave(imp_vars_plot,file = "imp_vars_plot.png")
+dev.off()
+# becareful about how you interpret this. Ask Beau if you have questions.
+
+auc_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = AUC, colour = CAT_response)); ggsave(auc_vs_CATresponse,file = "auc_vs_CATresponse.png")
+cmax_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = CMAX, colour = CAT_response)); ggsave(cmax_vs_CATresponse,file = "cmax_vs_CATresponse.png")
+site_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = site, colour = CAT_response)); ggsave(site_vs_CATresponse,file = "site_vs_CATresponse.png")
+cxrclass_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = cxrclass, colour = CAT_response)); ggsave(cxrclass_vs_CATresponse,file = "cxrclass_vs_CATresponse.png")
+birth_region_vs_CATresponse = ggplot() + geom_boxplot(data = pk_and_study_join, mapping = aes(x =CAT_response, y = birth_region, colour = CAT_response)); ggsave(birth_region_vs_CATresponse,file = "birth_region_vs_CATresponse.png")
+
+site_vs_CATresponse_hist = ggplot() + geom_histogram(data = pk_and_study_join, mapping = aes(x =site, fill = CAT_response)); ggsave(site_vs_CATresponse_hist,file = "site_vs_CATresponse_hist.png")
