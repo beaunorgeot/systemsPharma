@@ -34,3 +34,16 @@ final_all_rf = train(training, train_response, method= "rf", metric = "ROC",tune
 preds = predict(final_all_rf, testSet)
 confused = confusionMatrix(preds,testSet$CAT_response)
 #Sens = .97, Spec = .12, Kapp = .12
+
+varImp(final_all_rf)
+# top 5 vars
+#real_predicted_auc, AUC_using_penetration,cxrclass,antitb,education_c
+
+#plot them up
+auc_vs_CATresponse = ggplot() + geom_boxplot(data = final_df, mapping = aes(x =CAT_response, y = real_predicted_auc, colour = CAT_response)); ggsave(auc_vs_CATresponse,file = "auc_vs_CATresponse2.png")
+aucPENETRATION_vs_CATresponse = ggplot() + geom_boxplot(data = final_df, mapping = aes(x =CAT_response, y = AUC_using_penetration, colour = CAT_response)); ggsave(aucPENETRATION_vs_CATresponse,file = "aucPENETRATION_vs_CATresponse.png")
+cxrclass_vs_CATresponse = ggplot() + geom_boxplot(data = final_df, mapping = aes(x =CAT_response, y = cxrclass, colour = CAT_response)); ggsave(cxrclass_vs_CATresponse,file = "cxrclass_vs_CATresponse.png")
+education_vs_CATresponse_hist = ggplot() + geom_histogram(data = final_df, mapping = aes(x =education_c, fill = CAT_response)); ggsave(education_vs_CATresponse_hist,file = "education_vs_CATresponse_hist.png")
+antitb_vs_CATresponse = ggplot() + geom_boxplot(data = final_df, mapping = aes(x =CAT_response, y = antitb, colour = CAT_response)); ggsave(antitb_vs_CATresponse,file = "antitb_vs_CATresponse.png")
+# I don't know how to interpret this antib plot
+table(final_df$antitb) # there were 357 0's and 136 1's 
