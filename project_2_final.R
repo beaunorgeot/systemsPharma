@@ -47,3 +47,9 @@ education_vs_CATresponse_hist = ggplot() + geom_histogram(data = final_df, mappi
 antitb_vs_CATresponse = ggplot() + geom_boxplot(data = final_df, mapping = aes(x =CAT_response, y = antitb, colour = CAT_response)); ggsave(antitb_vs_CATresponse,file = "antitb_vs_CATresponse.png")
 # I don't know how to interpret this antib plot
 table(final_df$antitb) # there were 357 0's and 136 1's 
+
+someshit = final_df %>% 
+  group_by(CAT_response,antitb) %>%
+  summarise(n = n())
+
+# all Basically, nearly all of the slow responders had antitb as 0
