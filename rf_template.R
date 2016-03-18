@@ -126,6 +126,8 @@ training = mtcars[,my_avgTop_vars$Vars] #subset the original df on the columns y
 # the idea here is first use my variable importance permutation method above to produce a list of variables ranked by importance
 # then take the top 5, 10, 15, etc and build models with them, testing the models out of sample to search for where out of sample
 # performance either plateus or begins do decline (overfitting)
+confus_acc = list()# assign lists to hold confusionMatrix accurcacy and kappa
+confus_kapp = list()# here
 for (i in seq(10,200,10)){
   print(paste("starting forest",i/10,sep = " "))
   pvalues$SNP = as.character(pvalues$SNP)
@@ -144,13 +146,27 @@ for (i in seq(10,200,10)){
   assign(pred,predict(get(forest),test)) # do predictions and assign them to the string. forest == "just a string". You must get(forest) to get the train object
   confus = paste('confus_rf',i, sep = ".") # repeat the prediction string assignment for the confusionMatrix
   assign(confus,confusionMatrix(get(pred),truth))
+  accKapp = get(confus) # get the confusionMatrix and assign it to a variable
+  confus_acc[[i/10]] = accKapp$overall[[1]] # add the ith accuracy value to the list of confusion matrix accuracy values
+  confus_kapp[[i/10]] = accKapp$overall[[2]]# same for kappa
   save(list=c(forest),file = paste("pvalue_rf",i,"RData", sep = ".")) # again, forest,pred,confus are just strings. However list=forest actually saves the forest, but the save name needs to be generated, by some R voodoo
   save(list=c(pred), file = paste("pred_rf",i,"RData",sep="."))
   save(list=c(confus), file = paste("confus_rf",i,"RData",sep="."))
 }
-
-
-################################################ plotting ###############
+# the full script this came from was: ~burchardRotation/80_20/pr_pvalue/pr_by_pvalue.R
+# to see how to do this with glmnet and dummies vars: ~burchardRotation/80_20/pr_pvalue/glmnet_pr_pvalue.R
+save(confus_acc, file = "confus_acc.RData") #here
+save(confus_kapp, file = "confus_kapp.RData")# here
+###### out of sample plotting ##################
+library(tidyr)
+accANDkapp = data.frame(numVars = seq(10,200,10),Accuracy = unlist(confus_acc),Kappa = unlist(confus_kapp))
+a_long = accANDkapp %>% gather(statistic, value, -numVars)
+# This says "Gather all variables except numVars, calling the new key column 'statistic' and the new value column 'value'."
+library(ggplot2)
+pr_oob_acc_kapp_plot = ggplot() + geom_line(data = a_long, mapping = aes(x = numVars, y = value,colour = statistic)) + geom_point(data = a_long,aes(x = numVars,y = value,colour = statistic))
+#options(bitmapType = "cairo") # need this to save in unix env (cesar) #otherwise get X11 related error. Not necessary when in Rstudio
+ggsave(pr_oob_acc_kapp_plot,file = "pr_oob_acc_kapp_plot.png", width = 5, height = 5)
+###############
 ############### inSample plotting ##########
 resamps <- resamples(list(V_10 = pvalue_rf.10,V_20 = pvalue_rf.20), V_30 = pvalue_rf.30,V_40 = pvalue_rf.40,V_50 = pvalue_rf.50,
                      V_60 = pvalue_rf.60,V_70 = pvalue_rf.70,V_80 = pvalue_rf.80,V_90 = pvalue_rf.90,V_100 = pvalue_rf.100,
@@ -167,14 +183,7 @@ pvalue_rf.10$finalModel$confusion
 # see the misclassification rates for each class in that model
 pvalue_rf.10$finalModel$confusion[,3]
 
-###### out of sample plotting ##################
-confuse_acc = paste("conf_acc",i,sep = "_")
-confuse_kapp = paste("conf_kap",i,sep = "_")
-assign(confuse_acc,confusionMatrix(preds,genotypes_test$bdrGp)$overall[1]) # the first 2 items in $overall are Accuracy(1) and Kappa(2)
-assign(confuse_kapp,confusionMatrix(preds,genotypes_test$bdrGp)$overall[2])
-i = i/10
-confuse_acc[[i]] = confuse_acc
-confuse_kapp[[i]] = confuse_kapp
+
 
 
 ##plotting ##
